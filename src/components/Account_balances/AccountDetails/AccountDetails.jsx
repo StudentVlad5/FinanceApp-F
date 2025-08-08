@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { deleteData, fetchData, fetchReestrById } from 'services/APIservice';
+import { deleteData, fetchData } from 'services/APIservice';
 import { onFetchError, onSuccess } from 'helpers/Messages/NotifyMessages';
 import ReestrTable from './ReestrTable';
 import { useDispatch } from 'react-redux';
