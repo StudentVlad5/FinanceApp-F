@@ -15,12 +15,16 @@ import {
   TextField,
   Button,
   TablePagination,
+  Autocomplete,
 } from '@mui/material';
 
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddTaskIcon from '@mui/icons-material/AddTask';
 import { useSelector } from 'react-redux';
 import moment from 'moment/moment';
+import { theme } from 'components/baseStyles/Variables.styled';
+import { useParams } from 'react-router-dom';
 
 const columns = [
   { id: 'RE_ID', label: 'RE_ID' },
@@ -30,7 +34,8 @@ const columns = [
   { id: 'RE_PAYE_ID', label: 'RE_PAYE_ID' },
   { id: 'RE_CAT_ID', label: 'RE_CAT_ID' },
   { id: 'RE_MONEY', label: 'RE_MONEY' },
-  { id: 'RE_TRANS_RE', label: 'RE_TRANS_RE' },
+  // { id: 'RE_TRANS_RE', label: 'RE_TRANS_RE' },
+  { id: 'RE_TOTAL', label: 'RE_TOTAL' },
   { id: 'RE_KURS', label: 'RE_KURS' },
   { id: 'RE_TAG', label: 'RE_TAG' },
 ];
@@ -41,10 +46,31 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
   const [groupAccounts, setGroupAccounts] = useState([]);
   const [groupContragents, setGroupContragents] = useState([]);
   const [groupCategories, setGroupCategories] = useState(null);
+  const [add, setAdd] = useState(false);
 
   const { items: accounts } = useSelector((state) => state.accounts);
   const { items: categories } = useSelector((state) => state.categories);
   const { items: contragents } = useSelector((state) => state.contragents);
+  const { items: currency } = useSelector((state) => state.currency);
+  const { items: tags } = useSelector((state) => state.tags);
+  const { id } = useParams();
+  const accountOptions = [...accounts, { SCH_ID: '-1', SCH_NAME: 'Прибуток/витрати' }];
+
+  const currencyMap = useMemo(() => {
+    const map = {};
+    currency.forEach((it) => {
+      map[it?.CUR_ID] = it?.CUR_SHOT_NAME_US;
+    });
+    return map;
+  }, [currency]);
+
+  const accountMap = useMemo(() => {
+    const map = {};
+    accounts.forEach((it) => {
+      map[it?.SCH_ID] = it?.SCH_CUR;
+    });
+    return map;
+  }, [accounts]);
 
   useEffect(() => {
     const createGroupCategories = categories.reduce((acc, category) => {
@@ -85,9 +111,11 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
     if (groupAccounts) setGroupAccounts(groupAccounts);
     const accountName = groupAccounts[data[0]?.RE_SCH_ID] || 'Доходи/витрати';
 
+    const accountCurrency = currencyMap[accountMap[data[0]?.RE_SCH_ID]] || 'UAH';
+
     // Зберігаємо у вигляді масиву об'єктів
-    setAccountData([{ name: accountName, total }]);
-  }, [accounts, data, setAccountData]);
+    setAccountData([{ name: accountName, total, currency: accountCurrency }]);
+  }, [accounts, data, setAccountData, currencyMap, accountMap]);
 
   // пагінація
   const [page, setPage] = useState(0);
@@ -105,14 +133,21 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
 
   // Формат виводу
   const displayFormat = 'DD-MM-YYYY';
-  //    moment(value).format(displayFormat)
 
-  //   Format money
-  const formatMoney = (value) =>
-    value
-      .toFixed(2)
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-      .replace('.', ',');
+  //  Новий запис
+  const [createNewItem, setCreateNewItem] = useState({
+    RE_ID: Date.now() + Math.floor(Math.random() * 1000),
+    RE_TRANS_SCH_ID: '',
+    RE_DATE: '',
+    RE_KOMENT: '',
+    RE_PAYE_ID: '',
+    RE_CAT_ID: '',
+    RE_MONEY: '',
+    RE_TRANS_RE: '',
+    RE_KURS: 1,
+    RE_TAG: '',
+    RE_SCH_ID: id,
+  });
 
   // Стан фільтрів - ключі співпадають з id колонок
   const [filters, setFilters] = useState({
@@ -136,34 +171,64 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
 
   // Сортування за датою (від новішої)
   const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => new Date(b.RE_DATE) - new Date(a.RE_DATE));
+    return [...data].sort((a, b) => new Date(a.RE_DATE) - new Date(b.RE_DATE));
   }, [data]);
   // змінюємо візуалізацію
-  const formattedData = sortedData.map((it) => ({
-    ...it,
-    RE_MONEY: formatMoney(+it.RE_MONEY),
-    RE_DATE: moment(it.RE_DATE).format(displayFormat),
-    RE_TRANS_SCH_ID: groupAccounts[it.RE_TRANS_SCH_ID]
-      ? groupAccounts[it.RE_TRANS_SCH_ID]
-      : 'Прибуток/збиток',
-    RE_CAT_ID: groupCategories[it.RE_CAT_ID],
-    RE_PAYE_ID: groupContragents[it.RE_PAYE_ID],
-  }));
+  const formatMoney = (value) => {
+    if (typeof value === 'string') {
+      // Якщо значення - рядок, то заміняємо кому на крапку і перетворюємо в число
+      return parseFloat(value.replace(',', '.').replace(' ', '')) || 0;
+    }
+    // Якщо значення вже число, просто повертаємо його
+    return (
+      value
+        .toFixed(2)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+        .replace('.', ',') || 0
+    );
+  };
+
+  const formattedData = useMemo(() => {
+    let runningBalance = 0;
+
+    const enriched = sortedData.map((item) => {
+      const money = formatMoney(item.RE_MONEY); // Перетворюємо в число
+      runningBalance += money;
+      return {
+        ...item,
+        RE_TOTAL: runningBalance, // Обчислюємо сальдо
+      };
+    });
+
+    const withFormatting = enriched.map((item) => ({
+      ...item,
+      RE_MONEY: formatMoney(item.RE_MONEY), // Перетворення для відображення в таблиці
+      RE_TOTAL: formatMoney(item.RE_TOTAL), // Для відображення з точністю до двох знаків
+      RE_DATE: moment(item.RE_DATE).format(displayFormat),
+      DATE: item.RE_DATE,
+      RE_TRANS_SCH_ID: groupAccounts[item.RE_TRANS_SCH_ID] || 'Прибуток/збиток',
+      RE_CAT_ID: groupCategories[item.RE_CAT_ID],
+      RE_PAYE_ID: groupContragents[item.RE_PAYE_ID],
+    }));
+
+    return withFormatting;
+  }, [groupAccounts, groupCategories, groupContragents, sortedData]);
 
   // Фільтрація даних по всіх фільтрах
   const filteredData = useMemo(() => {
-    return formattedData.filter((item) => {
-      return columns.every(({ id }) => {
-        const filterValue = filters[id].toLowerCase().trim();
-        if (!filterValue) return true;
+    return formattedData
+      .sort((a, b) => new Date(b.DATE) - new Date(a.DATE))
+      .filter((item) => {
+        return columns.every(({ id }) => {
+          const filterValue = (filters[id] || '').toString().toLowerCase().trim();
+          const itemValue = item[id];
 
-        const itemValue = item[id];
-        if (itemValue === undefined || itemValue === null) return false;
+          if (!filterValue) return true;
+          if (itemValue === undefined || itemValue === null) return false;
 
-        // Для дати і чисел перетворимо до рядка
-        return String(itemValue).toLowerCase().includes(filterValue);
+          return String(itemValue).toLowerCase().includes(filterValue);
+        });
       });
-    });
   }, [filters, formattedData]);
 
   // обмеження виведення рядків
@@ -180,6 +245,26 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
   const handleClose = () => {
     setOpen(false);
     setEditingItem(null);
+    setAdd(false);
+    setCreateNewItem({
+      RE_ID: Date.now() + Math.floor(Math.random() * 1000),
+      RE_TRANS_SCH_ID: '',
+      RE_DATE: '',
+      RE_KOMENT: '',
+      RE_PAYE_ID: '',
+      RE_CAT_ID: '',
+      RE_MONEY: '',
+      RE_TRANS_RE: Date.now() + Math.floor(Math.random() * 1000) + 1,
+      RE_KURS: '',
+      RE_TAG: '',
+      RE_SCH_ID: id,
+    });
+  };
+
+  console.log('createNewItem', createNewItem);
+  const handleCreate = (e) => {
+    const { name, value } = e.target;
+    setCreateNewItem((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleChange = (e) => {
@@ -192,14 +277,20 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
     handleClose();
   };
 
+  const handleSaveCreate = () => {
+    onSave(createNewItem, 'create');
+    handleClose();
+  };
+
   const handleDelete = (item) => {
-    if (window.confirm(`Видалити запис RE_ID: ${item.RE_ID}?`)) {
-      onDelete(item);
+    if (window.confirm(`Видалити запис RE_ID: ${item._id}?`)) {
+      onDelete(item._id);
     }
   };
 
   return (
     <>
+      <AddTaskIcon sx={{ m: 1.5, cursor: 'pointer' }} onClick={() => setAdd((prev) => !prev)} />
       <TableContainer component={Paper}>
         <Table size='small' stickyHeader>
           <TableHead>
@@ -224,7 +315,18 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
           </TableHead>
           <TableBody>
             {paginatedData.map((formattedRow) => (
-              <TableRow key={formattedRow._id}>
+              <TableRow
+                key={formattedRow._id}
+                sx={{
+                  '&:nth-of-type(even)': {
+                    backgroundColor: theme.colors.fon, // світло-сірий
+                  },
+                  '&:hover': {
+                    backgroundColor: theme.colors.accent, // блідо-блакитний при наведенні
+                    cursor: 'pointer',
+                  },
+                }}
+              >
                 {columns.map(({ id }) => (
                   <TableCell key={id}>{formattedRow[id]}</TableCell>
                 ))}
@@ -370,6 +472,156 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
         <DialogActions>
           <Button onClick={handleClose}>Відмінити</Button>
           <Button variant='contained' onClick={handleSave} color='primary'>
+            Зберегти
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Модальне вікно створення нового запису */}
+      <Dialog
+        open={add}
+        onClose={() => {
+          setAdd(false);
+        }}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle>Створити новий запис RE_ID: {createNewItem?.RE_ID}</DialogTitle>
+        <DialogContent dividers>
+          {createNewItem && (
+            <>
+              <TextField
+                margin='dense'
+                label='RE_ID'
+                type='number'
+                fullWidth
+                name='RE_ID'
+                value={createNewItem.RE_ID}
+                onChange={handleCreate}
+                disabled
+              />
+              <TextField
+                margin='dense'
+                label='RE_DATE'
+                type='date'
+                fullWidth
+                name='RE_DATE'
+                value={createNewItem.RE_DATE}
+                onChange={handleCreate}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                margin='dense'
+                label='RE_KOMENT'
+                type='text'
+                fullWidth
+                name='RE_KOMENT'
+                value={createNewItem.RE_KOMENT}
+                onChange={handleCreate}
+              />
+              <Autocomplete
+                options={categories}
+                value={
+                  categories.find((option) => option.CAT0_ID === createNewItem.RE_CAT_ID) || null
+                }
+                onChange={(e, newValue) => {
+                  setCreateNewItem((prev) => ({
+                    ...prev,
+                    RE_CAT_ID: newValue ? newValue.CAT0_ID : '',
+                  }));
+                }}
+                getOptionLabel={(option) => option.CAT0_NAME}
+                isOptionEqualToValue={(option, value) => option.CAT0_ID === value.CAT0_ID}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.CAT0_ID}>
+                    {option.CAT0_NAME}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField {...params} label='RE_CAT_ID' margin='dense' fullWidth />
+                )}
+              />
+              <Autocomplete
+                options={contragents}
+                value={
+                  contragents.find((option) => option.PAYEE_ID === createNewItem.RE_PAYE_ID) || null
+                }
+                onChange={(e, newValue) => {
+                  setCreateNewItem((prev) => ({
+                    ...prev,
+                    RE_PAYE_ID: newValue ? newValue.PAYEE_ID : '', // ✅ беремо PAYEE_ID
+                  }));
+                }}
+                getOptionLabel={(option) => option.PAYEE_NAME}
+                isOptionEqualToValue={(option, value) => option.PAYEE_ID === value.PAYEE_ID} // ✅ однакові ключі
+                renderOption={(props, option) => (
+                  <li {...props} key={option.PAYEE_ID}>
+                    {option.PAYEE_NAME}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField {...params} label='RE_PAYE_ID' margin='dense' fullWidth />
+                )}
+              />
+
+              <TextField
+                margin='dense'
+                label='RE_MONEY'
+                type='number'
+                fullWidth
+                name='RE_MONEY'
+                value={createNewItem.RE_MONEY}
+                onChange={handleCreate}
+              />
+              <Autocomplete
+                options={accountOptions}
+                value={
+                  accountOptions.find(
+                    (option) => option.SCH_ID === createNewItem.RE_TRANS_SCH_ID,
+                  ) || null
+                }
+                onChange={(e, newValue) => {
+                  setCreateNewItem((prev) => ({
+                    ...prev,
+                    RE_TRANS_SCH_ID: newValue ? newValue.SCH_ID : '',
+                  }));
+                }}
+                getOptionLabel={(option) => option.SCH_NAME || ''}
+                isOptionEqualToValue={(option, value) => option.SCH_ID === value.SCH_ID}
+                renderInput={(params) => (
+                  <TextField {...params} label='RE_TRANS_SCH_ID' margin='dense' fullWidth />
+                )}
+              />
+              <TextField
+                margin='dense'
+                label='RE_KURS'
+                type='number'
+                fullWidth
+                name='RE_KURS'
+                value={createNewItem.RE_KURS}
+                onChange={handleCreate}
+              />
+              <Autocomplete
+                options={tags}
+                value={tags.find((option) => option.TG_NAME === createNewItem.RE_TAG) || null}
+                onChange={(e, newValue) => {
+                  setCreateNewItem((prev) => ({
+                    ...prev,
+                    // Замінимо TG_ID на TG_NAME в стані
+                    RE_TAG: newValue ? newValue.TG_NAME : '',
+                  }));
+                }}
+                getOptionLabel={(option) => option.TG_NAME}
+                isOptionEqualToValue={(option, value) => option.TG_ID === value.TG_ID}
+                renderInput={(params) => (
+                  <TextField {...params} label='RE_TAG' margin='dense' fullWidth />
+                )}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Відмінити</Button>
+          <Button variant='contained' onClick={handleSaveCreate} color='primary'>
             Зберегти
           </Button>
         </DialogActions>

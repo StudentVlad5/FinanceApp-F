@@ -11,3 +11,12 @@ export const getReestr = createAsyncThunk('reestr/getAll', async (_, thunkAPI) =
     return thunkAPI.rejectWithValue(err.response?.data || err.message);
   }
 });
+
+export const createReestr = createAsyncThunk('reestr/create', async (groupData, thunkAPI) => {
+  try {
+    const res = await axios.post(`${baseUrl}/create`, groupData);
+    return res.data;
+  } catch (err) {
+    return thunkAPI.rejectWithValue(err.response?.data || err.message);
+  }
+});

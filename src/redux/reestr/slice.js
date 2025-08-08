@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getReestr } from './operations';
+import { createReestr, getReestr } from './operations';
 
 const initialState = {
   items: [],
@@ -26,6 +26,10 @@ export const reestrSlice = createSlice({
       .addCase(getReestr.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
+      })
+      // Create
+      .addCase(createReestr.fulfilled, (state, action) => {
+        state.items.push(action.payload.data ?? action.payload);
       });
   },
 });

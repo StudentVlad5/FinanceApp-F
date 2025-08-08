@@ -39,6 +39,7 @@ const Topbar = () => {
         </IconButton>
 
         <Popper
+          sx={{ zIndex: 1302 }}
           open={openMenu}
           anchorEl={anchorRef.current}
           role={undefined}

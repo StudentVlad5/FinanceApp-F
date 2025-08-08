@@ -1,2 +1,0 @@
-"use strict";(self.webpackChunkFinanceApp=self.webpackChunkFinanceApp||[]).push([[978],{4978:(e,n,s)=>{s.r(n),s.d(n,{default:()=>r});var t=s(5043),i=s(8617),a=s(5475),c=s(579);const o=()=>(0,c.jsx)(c.Fragment,{children:(0,c.jsx)(a.N_,{to:"admin",children:"To admine page"})}),r=()=>((0,t.useEffect)((()=>{window.scrollTo({top:0,left:0,behavior:"smooth"})}),[]),(0,c.jsxs)(c.Fragment,{children:[(0,c.jsx)(i.k,{title:"Home",description:""}),(0,c.jsx)(o,{})]}))}}]);
-//# sourceMappingURL=978.6c90d31c.chunk.js.map

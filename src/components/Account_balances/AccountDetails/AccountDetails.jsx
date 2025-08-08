@@ -1,9 +1,11 @@
 import { useParams } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { fetchData } from 'services/APIservice';
+import { deleteData, fetchData, fetchReestrById } from 'services/APIservice';
 import { onFetchError, onSuccess } from 'helpers/Messages/NotifyMessages';
 import ReestrTable from './ReestrTable';
+import { useDispatch } from 'react-redux';
+import { createReestr } from '../../../redux/reestr/operations';
 
 const formatMoney = (value) =>
   value
@@ -15,6 +17,9 @@ const AccountDetails = () => {
   const { id } = useParams();
   const [reestrById, setReestrById] = useState([]);
   const [accountData, setAccountData] = useState([]);
+  const [switcher, setSwitcher] = useState(true);
+  const dispatch = useDispatch();
+
   useEffect(() => {
     const fetchReestr = async () => {
       if (!id) return;
@@ -29,31 +34,41 @@ const AccountDetails = () => {
     };
 
     fetchReestr();
-  }, [id]);
+  }, [id, switcher]);
 
-  const handleSave = async (updatedItem) => {
-    // TODO: виклик API для збереження змін
-    console.log('Зберегти:', updatedItem);
-    // Після успішного збереження оновити локальний стан
-    setReestrById((prev) =>
-      prev.map((item) => (item._id === updatedItem._id ? updatedItem : item)),
-    );
+  const handleSave = async (updatedItem, status = 'create') => {
+    if (status === 'create') {
+      dispatch(createReestr(updatedItem));
+    }
+    setSwitcher((prev) => !prev);
   };
 
   const handleDelete = async (itemToDelete) => {
-    // TODO: виклик API для видалення
-    console.log('Видалити:', itemToDelete);
-    // Після успішного видалення оновити локальний стан
-    setReestrById((prev) => prev.filter((item) => item._id !== itemToDelete._id));
+    try {
+      // Дочекайся результату deleteData
+      const response = await deleteData(`/reestr/delete/${itemToDelete}`);
+
+      if (response.status === 202) {
+        onSuccess('Видалення успішне');
+        setSwitcher((prev) => !prev);
+      } else {
+        // Обробка помилок відповіді
+        onFetchError('Помилка при видаленні даних');
+      }
+    } catch (error) {
+      // Обробка помилок мережі або інших
+      onFetchError('Виникла помилка при отриманні даних по рахунку');
+    }
   };
-  console.log('accountData', accountData);
+
   return (
     <div>
       <Typography variant='h5'>
         Деталі рахунку {id}{' '}
         {accountData.length > 0 && (
           <>
-            {accountData[0].name} — загалом: {formatMoney(accountData[0].total)} грн
+            {accountData[0].name} — загалом: {formatMoney(accountData[0].total)}{' '}
+            {accountData[0].currency}
           </>
         )}
       </Typography>
