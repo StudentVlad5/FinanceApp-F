@@ -5,7 +5,7 @@ import { deleteData, fetchData } from 'services/APIservice';
 import { onFetchError, onSuccess } from 'helpers/Messages/NotifyMessages';
 import ReestrTable from './ReestrTable';
 import { useDispatch } from 'react-redux';
-import { createReestr } from '../../../redux/reestr/operations';
+import { createReestr, editReestr } from '../../../redux/reestr/operations';
 
 const formatMoney = (value) =>
   value
@@ -36,11 +36,22 @@ const AccountDetails = () => {
     fetchReestr();
   }, [id, switcher]);
 
-  const handleSave = async (updatedItem, status = 'create') => {
+  const handleSave = async (activeItem, status = 'create') => {
     if (status === 'create') {
-      dispatch(createReestr(updatedItem));
+      try {
+        await dispatch(createReestr(activeItem));
+        setSwitcher((prev) => !prev); // оновити після успішного збереження
+      } catch (e) {
+        onFetchError('Помилка при збереженні:', e);
+      }
+    } else if (status === 'edit') {
+      try {
+        await dispatch(editReestr({ id: activeItem._id, data: activeItem }));
+        setSwitcher((prev) => !prev); // оновити після успішного збереження
+      } catch (e) {
+        onFetchError('Помилка при збереженні:', e);
+      }
     }
-    setSwitcher((prev) => !prev);
   };
 
   const handleDelete = async (itemToDelete) => {

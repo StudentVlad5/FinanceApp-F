@@ -20,3 +20,12 @@ export const createReestr = createAsyncThunk('reestr/create', async (groupData, 
     return thunkAPI.rejectWithValue(err.response?.data || err.message);
   }
 });
+
+export const editReestr = createAsyncThunk('reestr/edit', async ({ id, data }, thunkAPI) => {
+  try {
+    const res = await axios.post(`${baseUrl}/edit/${id}`, data);
+    return res.data;
+  } catch (err) {
+    return thunkAPI.rejectWithValue(err.response?.data || err.message);
+  }
+});

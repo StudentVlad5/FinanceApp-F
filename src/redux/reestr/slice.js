@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { createReestr, getReestr } from './operations';
+import { createReestr, getReestr, editReestr } from './operations';
 
 const initialState = {
   items: [],
@@ -30,6 +30,11 @@ export const reestrSlice = createSlice({
       // Create
       .addCase(createReestr.fulfilled, (state, action) => {
         state.items.push(action.payload.data ?? action.payload);
+      })
+      // Edit
+      .addCase(editReestr.fulfilled, (state, action) => {
+        const index = state.items.findIndex((c) => c._id === action.payload._id);
+        if (index !== -1) state.items[index] = action.payload;
       });
   },
 });

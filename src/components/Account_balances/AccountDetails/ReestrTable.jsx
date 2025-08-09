@@ -42,11 +42,11 @@ const columns = [
 
 const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
   const [open, setOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  const [activeItem, setActiveItem] = useState(null);
+  const [modalMode, setModalMode] = useState(null); // 'edit' або 'create'
   const [groupAccounts, setGroupAccounts] = useState([]);
   const [groupContragents, setGroupContragents] = useState([]);
   const [groupCategories, setGroupCategories] = useState(null);
-  const [add, setAdd] = useState(false);
 
   const { items: accounts } = useSelector((state) => state.accounts);
   const { items: categories } = useSelector((state) => state.categories);
@@ -133,21 +133,6 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
 
   // Формат виводу
   const displayFormat = 'DD-MM-YYYY';
-
-  //  Новий запис
-  const [createNewItem, setCreateNewItem] = useState({
-    RE_ID: Date.now() + Math.floor(Math.random() * 1000),
-    RE_TRANS_SCH_ID: '',
-    RE_DATE: '',
-    RE_KOMENT: '',
-    RE_PAYE_ID: '',
-    RE_CAT_ID: '',
-    RE_MONEY: '',
-    RE_TRANS_RE: '',
-    RE_KURS: 1,
-    RE_TAG: '',
-    RE_SCH_ID: id,
-  });
 
   // Стан фільтрів - ключі співпадають з id колонок
   const [filters, setFilters] = useState({
@@ -237,16 +222,14 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
   const handleEditClick = (item) => {
     const originalItem = data.find((el) => el._id === item._id);
     if (originalItem) {
-      setEditingItem({ ...originalItem });
+      setActiveItem({ ...originalItem });
+      setModalMode('edit');
       setOpen(true);
     }
   };
 
-  const handleClose = () => {
-    setOpen(false);
-    setEditingItem(null);
-    setAdd(false);
-    setCreateNewItem({
+  const handleCreateClick = () => {
+    setActiveItem({
       RE_ID: Date.now() + Math.floor(Math.random() * 1000),
       RE_TRANS_SCH_ID: '',
       RE_DATE: '',
@@ -255,31 +238,28 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
       RE_CAT_ID: '',
       RE_MONEY: '',
       RE_TRANS_RE: Date.now() + Math.floor(Math.random() * 1000) + 1,
-      RE_KURS: '',
+      RE_KURS: 1,
       RE_TAG: '',
       RE_SCH_ID: id,
     });
+    setModalMode('create');
+    setOpen(true);
   };
 
-  console.log('createNewItem', createNewItem);
-  const handleCreate = (e) => {
+  const handleItemChange = (e) => {
     const { name, value } = e.target;
-    setCreateNewItem((prev) => ({ ...prev, [name]: value }));
+    setActiveItem((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setEditingItem((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = () => {
-    onSave(editingItem);
+  const handleSaveUnified = () => {
+    onSave(activeItem, modalMode); // 'create' або 'edit'
     handleClose();
   };
 
-  const handleSaveCreate = () => {
-    onSave(createNewItem, 'create');
-    handleClose();
+  const handleClose = () => {
+    setOpen(false);
+    setActiveItem(null);
+    setModalMode(null);
   };
 
   const handleDelete = (item) => {
@@ -290,7 +270,7 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
 
   return (
     <>
-      <AddTaskIcon sx={{ m: 1.5, cursor: 'pointer' }} onClick={() => setAdd((prev) => !prev)} />
+      <AddTaskIcon sx={{ m: 1.5, cursor: 'pointer' }} onClick={handleCreateClick} />
       <TableContainer component={Paper}>
         <Table size='small' stickyHeader>
           <TableHead>
@@ -368,126 +348,15 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
         onRowsPerPageChange={handleChangeRowsPerPage}
         rowsPerPageOptions={[5, 10, 25, 50]}
       />
-      {/* Модальне вікно редагування */}
-      <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth>
-        <DialogTitle>Редагувати запис RE_ID: {editingItem?.RE_ID}</DialogTitle>
-        <DialogContent dividers>
-          {editingItem && (
-            <>
-              <TextField
-                margin='dense'
-                label='RE_ID'
-                type='number'
-                fullWidth
-                name='RE_ID'
-                value={editingItem.RE_ID}
-                onChange={handleChange}
-                disabled
-              />
-              <TextField
-                margin='dense'
-                label='RE_SCH_ID'
-                type='number'
-                fullWidth
-                name='RE_SCH_ID'
-                value={editingItem.RE_SCH_ID}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_DATE'
-                type='date'
-                fullWidth
-                name='RE_DATE'
-                value={editingItem.RE_DATE}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                margin='dense'
-                label='RE_KOMENT'
-                type='text'
-                fullWidth
-                name='RE_KOMENT'
-                value={editingItem.RE_KOMENT}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_PAYE_ID'
-                type='number'
-                fullWidth
-                name='RE_PAYE_ID'
-                value={editingItem.RE_PAYE_ID}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_CAT_ID'
-                type='number'
-                fullWidth
-                name='RE_CAT_ID'
-                value={editingItem.RE_CAT_ID}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_MONEY'
-                type='number'
-                fullWidth
-                name='RE_MONEY'
-                value={editingItem.RE_MONEY}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_TRANS_RE'
-                type='number'
-                fullWidth
-                name='RE_TRANS_RE'
-                value={editingItem.RE_TRANS_RE}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_KURS'
-                type='text'
-                fullWidth
-                name='RE_KURS'
-                value={editingItem.RE_KURS}
-                onChange={handleChange}
-              />
-              <TextField
-                margin='dense'
-                label='RE_TAG'
-                type='text'
-                fullWidth
-                name='RE_TAG'
-                value={editingItem.RE_TAG}
-                onChange={handleChange}
-              />
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Відмінити</Button>
-          <Button variant='contained' onClick={handleSave} color='primary'>
-            Зберегти
-          </Button>
-        </DialogActions>
-      </Dialog>
       {/* Модальне вікно створення нового запису */}
-      <Dialog
-        open={add}
-        onClose={() => {
-          setAdd(false);
-        }}
-        maxWidth='sm'
-        fullWidth
-      >
-        <DialogTitle>Створити новий запис RE_ID: {createNewItem?.RE_ID}</DialogTitle>
+      <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth>
+        <DialogTitle>
+          {modalMode === 'create'
+            ? 'Створити новий запис'
+            : `Редагувати запис RE_ID: ${activeItem?.RE_ID}`}
+        </DialogTitle>
         <DialogContent dividers>
-          {createNewItem && (
+          {activeItem && (
             <>
               <TextField
                 margin='dense'
@@ -495,8 +364,8 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
                 type='number'
                 fullWidth
                 name='RE_ID'
-                value={createNewItem.RE_ID}
-                onChange={handleCreate}
+                value={activeItem.RE_ID}
+                onChange={handleItemChange}
                 disabled
               />
               <TextField
@@ -505,8 +374,8 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
                 type='date'
                 fullWidth
                 name='RE_DATE'
-                value={createNewItem.RE_DATE}
-                onChange={handleCreate}
+                value={activeItem.RE_DATE}
+                onChange={handleItemChange}
                 InputLabelProps={{ shrink: true }}
               />
               <TextField
@@ -515,16 +384,14 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
                 type='text'
                 fullWidth
                 name='RE_KOMENT'
-                value={createNewItem.RE_KOMENT}
-                onChange={handleCreate}
+                value={activeItem.RE_KOMENT}
+                onChange={handleItemChange}
               />
               <Autocomplete
                 options={categories}
-                value={
-                  categories.find((option) => option.CAT0_ID === createNewItem.RE_CAT_ID) || null
-                }
+                value={categories.find((option) => option.CAT0_ID === activeItem.RE_CAT_ID) || null}
                 onChange={(e, newValue) => {
-                  setCreateNewItem((prev) => ({
+                  setActiveItem((prev) => ({
                     ...prev,
                     RE_CAT_ID: newValue ? newValue.CAT0_ID : '',
                   }));
@@ -543,10 +410,10 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
               <Autocomplete
                 options={contragents}
                 value={
-                  contragents.find((option) => option.PAYEE_ID === createNewItem.RE_PAYE_ID) || null
+                  contragents.find((option) => option.PAYEE_ID === activeItem.RE_PAYE_ID) || null
                 }
                 onChange={(e, newValue) => {
-                  setCreateNewItem((prev) => ({
+                  setActiveItem((prev) => ({
                     ...prev,
                     RE_PAYE_ID: newValue ? newValue.PAYEE_ID : '', // ✅ беремо PAYEE_ID
                   }));
@@ -569,18 +436,17 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
                 type='number'
                 fullWidth
                 name='RE_MONEY'
-                value={createNewItem.RE_MONEY}
-                onChange={handleCreate}
+                value={activeItem.RE_MONEY}
+                onChange={handleItemChange}
               />
               <Autocomplete
                 options={accountOptions}
                 value={
-                  accountOptions.find(
-                    (option) => option.SCH_ID === createNewItem.RE_TRANS_SCH_ID,
-                  ) || null
+                  accountOptions.find((option) => option.SCH_ID === activeItem.RE_TRANS_SCH_ID) ||
+                  null
                 }
                 onChange={(e, newValue) => {
-                  setCreateNewItem((prev) => ({
+                  setActiveItem((prev) => ({
                     ...prev,
                     RE_TRANS_SCH_ID: newValue ? newValue.SCH_ID : '',
                   }));
@@ -597,14 +463,14 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
                 type='number'
                 fullWidth
                 name='RE_KURS'
-                value={createNewItem.RE_KURS}
-                onChange={handleCreate}
+                value={activeItem.RE_KURS}
+                onChange={handleItemChange}
               />
               <Autocomplete
                 options={tags}
-                value={tags.find((option) => option.TG_NAME === createNewItem.RE_TAG) || null}
+                value={tags.find((option) => option.TG_NAME === activeItem.RE_TAG) || null}
                 onChange={(e, newValue) => {
-                  setCreateNewItem((prev) => ({
+                  setActiveItem((prev) => ({
                     ...prev,
                     // Замінимо TG_ID на TG_NAME в стані
                     RE_TAG: newValue ? newValue.TG_NAME : '',
@@ -621,7 +487,7 @@ const ReestrTable = ({ data, onSave, onDelete, setAccountData }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Відмінити</Button>
-          <Button variant='contained' onClick={handleSaveCreate} color='primary'>
+          <Button variant='contained' onClick={handleSaveUnified} color='primary'>
             Зберегти
           </Button>
         </DialogActions>
